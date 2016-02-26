@@ -1,22 +1,25 @@
+import argparse
 from ale_python_interface import ALEInterface
 import random
 import sys
 from game import Game
 from rl_agent import Agent
 
-ENDURO_ROM = "roms/Enduro.A26"
-AMIDAR_ROM  = "roms/Amidar.A26"
-BERZERK_ROM  = "roms/Berzerk.A26"
-USE_SDL = False
-RESTORE_MODEL = True
+import argparse
+parser = argparse.ArgumentParser(description='Arcade Reinforcement Learning')
+parser.add_argument('romfile', type=argparse.FileType('r'),
+                    help='The path to the rom file to use')
+parser.add_argument('-g, --gui', default=True, action='store_true', dest='gui',
+                    help='If set, a GUI frame of the game will be shown')
+parser.add_argument('-c, --continue', default=True, action='store_true', dest='cont',
+                    help='If set, the agent will continue on a previously saved state')
+args = parser.parse_args()
 
-game = Game(BERZERK_ROM, USE_SDL)
+game = Game(args.romfile.name, args.gui)
 
 # Get the list of actions
-# legal_actions = game.get_legal_action_set()
 legal_actions = game.get_minimal_action_set()
-print(legal_actions)
-agent = Agent(legal_actions, restore=RESTORE_MODEL)
+agent = Agent(legal_actions, restore=args.cont)
 agent.set_frame(game.get_frame())
 num_frames = 0
 num_games = 0
