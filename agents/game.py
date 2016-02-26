@@ -35,3 +35,6 @@ class Game():
 
     def reset_game(self):
         self.ale.reset_game()
+
+    def get_frame(self):
+        return self.ale.getScreenRGB()

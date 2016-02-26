@@ -1,4 +1,9 @@
 ale-python-interface==0.0.1
 numpy==1.10.4
+protobuf==3.0.0a3
+pygame==1.9.2a0
 scipy==0.17.0
+six==1.10.0
 sklearn==0.0
+tensorflow==0.7.0
+wheel==0.29.0
