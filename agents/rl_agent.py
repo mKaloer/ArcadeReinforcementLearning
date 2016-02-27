@@ -14,9 +14,8 @@ class Agent():
     _DISCOUNT_FACTOR = 0.9
     _NUM_SKIP_FRAMES = 4
 
-    def __init__(self, action_set, frame_size=(128,128), rand_seed=0, restore=False, save_path=None):
+    def __init__(self, action_set, rand_seed=0, restore=False, save_path=None):
         self.action_set = action_set
-        self.frame_size = frame_size
         self.frames = deque(maxlen=Agent._NUM_SKIP_FRAMES)
         self.replay_mem = deque(maxlen=Agent._REPLAY_MEMORY_LEN)
         self.epsilon = Agent._INITIAL_EPSILON
@@ -49,7 +48,12 @@ class Agent():
         self._current_state['action'] = action
         return action
 
-    def reward(self, reward):
+    def reward(self, reward, is_terminal):
+        self._current_state['terminal'] = is_terminal
+        if is_terminal:
+            # Make sure we catch this frame
+            self._current_state['reward'] = reward
+            self._current_skip = Agent._NUM_SKIP_FRAMES - 1
         if self._current_skip > 0:
             self._current_state['reward'] = max(self._current_state['reward'], reward)
             if self._current_skip == Agent._NUM_SKIP_FRAMES - 1:
@@ -67,8 +71,9 @@ class Agent():
         self._current_state['prev_state'] = prev_state
         state_repr = self._represent_state(self._current_state)
         # Store transition in replay memory
+        store_prev = len(self.replay_mem) > 0 and not prev_state['terminal']
         self.replay_mem.append({
-            'prev': self._represent_state(self._prev_state),
+            'prev': self.replay_mem[-1]['current'] if store_prev else None,
             'action': self._current_state['action'],
             'reward': self._current_state['reward'],
             'current': state_repr
@@ -85,11 +90,15 @@ class Agent():
                     # Is terminal
                     max_q = 0
                 else:
-                    max_q = max(self._model.predict(transition['current'][0]))
-                q_vals.append(transition['reward'] + Agent._DISCOUNT_FACTOR * max_q)
+                    max_q = np.max(self._model.predict(transition['current'][0]))
+
+                new_val = transition['reward'] + Agent._DISCOUNT_FACTOR * max_q
+                action_out = np.zeros((20,))
+                action_out[transition['action']] = new_val
+                q_vals.append(action_out)
 
             # Train
-            self._model.train_batch(np.vstack(frames), q_vals)
+            self._model.train_batch(np.vstack(frames), np.array(q_vals))
 
         self._train_skips += 1
         # Update epsilon (epsilon-greedy policy)
@@ -106,9 +115,9 @@ class Agent():
     def _represent_state(self, state):
         # TODO: return (frame_features, is_terminal)
         if state is None:
-            return (np.zeros((84, 84, Agent._NUM_SKIP_FRAMES)), 0)
+            return (np.zeros((84, 84, Agent._NUM_SKIP_FRAMES)), state['terminal'])
         stacked_frames = np.array(list(self.frames))
-        return (np.array([stacked_frames.flatten()]), 0)
+        return (np.array([stacked_frames.flatten()]), state['terminal'])
 
     def _random_action(self):
         return random.choice(self.action_set)
