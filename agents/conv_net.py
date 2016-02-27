@@ -56,13 +56,15 @@ class ConvolutionalNetwork(object):
         W_fc2 = ConvolutionalNetwork.weight_variable([256, 20])
         b_fc2 = ConvolutionalNetwork.bias_variable([20])
         y_hat = tf.matmul(h_fc1, W_fc2) + b_fc2
-        train_op = tf.train.GradientDescentOptimizer(ConvolutionalNetwork.LEARNING_RATE).minimize(tf.nn.l2_loss(y - y_hat))
+        loss = tf.nn.l2_loss(y - y_hat)
+        loss = tf.Print(loss, [loss], 'loss') # Print loss
+        train_op = tf.train.GradientDescentOptimizer(ConvolutionalNetwork.LEARNING_RATE).minimize(loss)
 
         return (x, y, y_hat, train_op)
 
     @staticmethod
     def weight_variable(shape):
-        initial = tf.truncated_normal(shape, stddev=0.1)
+        initial = tf.zeros(shape)
         return tf.Variable(initial)
 
     @staticmethod
