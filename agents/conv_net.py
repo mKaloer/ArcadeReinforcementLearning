@@ -4,21 +4,22 @@ class ConvolutionalNetwork(object):
 
     LEARNING_RATE = 0.01
 
-    def __init__(self):
+    def __init__(self, save_path='model_data/agent.ckpt'):
         self._x, self._y, self._y_hat, self._train_op = ConvolutionalNetwork._build()
         self._sess = None
+        self.save_path = save_path
 
     def start_session(self, restore=False):
         self._saver = tf.train.Saver()
         self._sess = tf.Session()
         init_op = tf.initialize_all_variables()
         if restore:
-            self._saver.restore(self._sess, 'foo/rl_conv.ckpt')
+            self._saver.restore(self._sess, self.save_path)
         else:
             self._sess.run(init_op)
 
     def stop_session(self):
-        save_path = self._saver.save(self._sess, "foo/rl_conv.ckpt")
+        save_path = self._saver.save(self._sess, self.save_path)
         print("Saved to %s" % (save_path,))
         self._sess.close()
 

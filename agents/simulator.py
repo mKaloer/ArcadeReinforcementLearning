@@ -1,3 +1,4 @@
+import os
 import argparse
 from ale_python_interface import ALEInterface
 import random
@@ -9,17 +10,21 @@ import argparse
 parser = argparse.ArgumentParser(description='Arcade Reinforcement Learning')
 parser.add_argument('romfile', type=argparse.FileType('r'),
                     help='The path to the rom file to use')
-parser.add_argument('-g, --gui', default=True, action='store_true', dest='gui',
+parser.add_argument('-g, --gui', default=False, action='store_true', dest='gui',
                     help='If set, a GUI frame of the game will be shown')
-parser.add_argument('-c, --continue', default=True, action='store_true', dest='cont',
+parser.add_argument('-c, --continue', default=False, action='store_true', dest='cont',
                     help='If set, the agent will continue on a previously saved state')
-args = parser.parse_args()
 
+args = parser.parse_args()
 game = Game(args.romfile.name, args.gui)
+save_dir = "model_data/%s" % (os.path.splitext(os.path.basename(args.romfile.name))[0],)
+save_file = "%s/agent.ckpt" % (save_dir,)
+os.makedirs(save_dir)
+print("Model will be saved in %s" % (save_file,))
 
 # Get the list of actions
 legal_actions = game.get_minimal_action_set()
-agent = Agent(legal_actions, restore=args.cont)
+agent = Agent(legal_actions, restore=args.cont, save_path=save_file)
 agent.set_frame(game.get_frame())
 num_frames = 0
 num_games = 0

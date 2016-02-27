@@ -14,7 +14,7 @@ class Agent():
     _DISCOUNT_FACTOR = 0.9
     _NUM_SKIP_FRAMES = 4
 
-    def __init__(self, action_set, frame_size=(128,128), rand_seed=0, restore=False):
+    def __init__(self, action_set, frame_size=(128,128), rand_seed=0, restore=False, save_path=None):
         self.action_set = action_set
         self.frame_size = frame_size
         self.frames = deque(maxlen=Agent._NUM_SKIP_FRAMES)
@@ -22,7 +22,7 @@ class Agent():
         self.epsilon = Agent._INITIAL_EPSILON
         self._prev_state = None
         self._current_state = {}
-        self._model = ConvolutionalNetwork()
+        self._model = ConvolutionalNetwork() if save_path is None else ConvolutionalNetwork(save_path)
         self._model.start_session(restore=restore)
         self._current_skip = 0
         self._train_skips = 0
