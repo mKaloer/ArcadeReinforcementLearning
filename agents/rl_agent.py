@@ -6,10 +6,10 @@ from conv_net import ConvolutionalNetwork
 
 class Agent():
 
-    _REPLAY_MEMORY_LEN = 100000
+    _REPLAY_MEMORY_LEN = 1000000
     _INITIAL_EPSILON = 1
     _MIN_EPSILON = 0.1
-    _EPSILON_ANNEALING_STEPS = 1000000
+    _EPSILON_ANNEALING_STEPS = 10000000
     _MINIBATCH_SIZE = 32
     _DISCOUNT_FACTOR = 0.9
     _NUM_SKIP_FRAMES = 4
@@ -80,6 +80,7 @@ class Agent():
         })
 
         if self._train_skips > 100:
+            print("Epsilon: %f" % (self.epsilon,))
             self._train_skips = 0
             sample = random.sample(self.replay_mem, min(len(self.replay_mem), Agent._MINIBATCH_SIZE))
             frames = []
@@ -103,6 +104,8 @@ class Agent():
         self._train_skips += 1
         # Update epsilon (epsilon-greedy policy)
         self.epsilon -= (Agent._INITIAL_EPSILON - Agent._MIN_EPSILON) / Agent._EPSILON_ANNEALING_STEPS
+        if self.epsilon < Agent._MIN_EPSILON:
+            self.epsilon = Agent._MIN_EPSILON
         # Store previous state and create new current state
         self._prev_state = self._current_state
         self._current_state = {}
