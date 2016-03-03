@@ -21,7 +21,10 @@ class Agent():
         self.epsilon = Agent._INITIAL_EPSILON
         self._prev_state = None
         self._current_state = {}
-        self._model = ConvolutionalNetwork() if save_path is None else ConvolutionalNetwork(save_path)
+        if save_path is None:
+            self._model = ConvolutionalNetwork(len(action_set))
+        else:
+            self._model = ConvolutionalNetwork(len(action_set), save_path)
         self._model.start_session(restore=restore)
         self._current_skip = 0
         self._train_skips = 0
@@ -38,15 +41,14 @@ class Agent():
     def get_action(self, force_random=False):
         # Return prev action if not new state
         if self._current_skip > 0:
-            return self._current_state['action']
+            return self.action_set[self._current_state['action']]
         elif force_random or random.random() <= self.epsilon or len(self.frames) < 4:
             # Random action
             action = self._random_action()
         else:
             action = self._optimal_action()
-
         self._current_state['action'] = action
-        return action
+        return self.action_set[action]
 
     def reward(self, reward, is_terminal):
         self._current_state['terminal'] = is_terminal
@@ -85,6 +87,7 @@ class Agent():
             sample = random.sample(self.replay_mem, min(len(self.replay_mem), Agent._MINIBATCH_SIZE))
             frames = []
             q_vals = []
+            actions = []
             for transition in sample:
                 frames.append(transition['current'][0])
                 if transition['current'][1]:
@@ -94,12 +97,15 @@ class Agent():
                     max_q = np.max(self._model.predict(transition['current'][0]))
 
                 new_val = transition['reward'] + Agent._DISCOUNT_FACTOR * max_q
-                action_out = np.zeros((20,))
+                action_out = np.zeros((len(self.action_set),))
                 action_out[transition['action']] = new_val
                 q_vals.append(action_out)
+                bin_action = np.zeros((len(self.action_set),))
+                bin_action[transition['action']] = 1
+                actions.append(bin_action)
 
             # Train
-            self._model.train_batch(np.vstack(frames), np.array(q_vals))
+            self._model.train_batch(np.vstack(frames), np.array(q_vals), np.array(actions))
 
         self._train_skips += 1
         # Update epsilon (epsilon-greedy policy)
@@ -120,15 +126,13 @@ class Agent():
         if state is None:
             return (np.zeros((84, 84, Agent._NUM_SKIP_FRAMES)), state['terminal'])
         stacked_frames = np.array(list(self.frames))
-        return (np.array([stacked_frames.flatten()]), state['terminal'])
+        return (np.array([np.rot90(stacked_frames.T, 3).flatten()]), state['terminal'])
 
     def _random_action(self):
-        return random.choice(self.action_set)
+        return random.randrange(len(self.action_set))
 
     def _optimal_action(self):
         # Use frame from prev_state as we have reset state in _learn_from_state
         vals = self._model.predict(self._represent_state(self._prev_state)[0])
         action = np.argmax(vals)
-        if not action in self.action_set:
-            action = self._random_action()
         return action

@@ -26,9 +26,9 @@ def run():
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     print("Model will be saved in %s" % (save_file,))
-    import pdb;pdb.set_trace()
     # Get the list of actions
     legal_actions = game.get_minimal_action_set()
+    print(legal_actions)
     agent = Agent(legal_actions, restore=args.cont, save_path=save_file)
     agent.set_frame(game.get_frame())
     num_frames = 0
@@ -48,6 +48,8 @@ def run():
                 # Apply an action and get the resulting reward
                 reward = game.act(a)
                 agent.set_frame(game.get_frame())
+                if game.game_over():
+                    reward = -1
                 if reward > 0:
                     reward = 1
                 elif reward < 0:
