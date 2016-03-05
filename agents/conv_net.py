@@ -3,7 +3,7 @@ import numpy as np
 
 class ConvolutionalNetwork(object):
 
-    LEARNING_RATE = 0.00001
+    LEARNING_RATE = 0.00000001
 
     def __init__(self, num_actions, save_path='model_data/agent.ckpt'):
         self._x, self._y, self._action, self._y_hat, self._train_op = ConvolutionalNetwork._build(num_actions)
