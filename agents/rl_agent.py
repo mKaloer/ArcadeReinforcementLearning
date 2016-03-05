@@ -9,8 +9,8 @@ class Agent():
     _REPLAY_MEMORY_LEN = 1000000
     _INITIAL_EPSILON = 1
     _MIN_EPSILON = 0.1
-    _EPSILON_ANNEALING_STEPS = 10000000
-    _MINIBATCH_SIZE = 32
+    _EPSILON_ANNEALING_STEPS = 100000
+    _MINIBATCH_SIZE = 100
     _DISCOUNT_FACTOR = 0.9
     _NUM_SKIP_FRAMES = 4
 
@@ -29,6 +29,7 @@ class Agent():
         self._current_skip = 0
         self._train_skips = 0
         random.seed(rand_seed)
+        self.action_hist = np.zeros((len(action_set),))
 
     def stop_session(self):
         self._model.stop_session()
@@ -81,38 +82,36 @@ class Agent():
             'current': state_repr
         })
 
-        if self._train_skips > 100:
-            print("Epsilon: %f" % (self.epsilon,))
-            self._train_skips = 0
-            sample = random.sample(self.replay_mem, min(len(self.replay_mem), Agent._MINIBATCH_SIZE))
-            frames = []
-            q_vals = []
-            actions = []
-            for transition in sample:
-                frames.append(transition['current'][0])
-                if transition['current'][1]:
-                    # Is terminal
-                    max_q = 0
-                else:
-                    max_q = np.max(self._model.predict(transition['current'][0]))
+        if len(self.replay_mem) > 1000:
+            if self._train_skips > 100:
+                print("Epsilon: %f" % (self.epsilon,))
+                self._train_skips = 0
+                sample = random.sample(self.replay_mem, min(len(self.replay_mem), Agent._MINIBATCH_SIZE))
+                frames = []
+                q_vals = []
+                actions = []
+                for transition in sample:
+                    frames.append(transition['current'][0])
+                    if transition['current'][1]:
+                        # Is terminal
+                        max_q = 0
+                    else:
+                        max_q = np.max(self._model.predict(np.array([transition['current'][0]])))
 
-                new_val = transition['reward'] + Agent._DISCOUNT_FACTOR * max_q
-                action_out = np.zeros((len(self.action_set),))
-                action_out[transition['action']] = new_val
-                q_vals.append(action_out)
-                bin_action = np.zeros((len(self.action_set),))
-                bin_action[transition['action']] = 1
-                actions.append(bin_action)
+                    new_val = transition['reward'] + Agent._DISCOUNT_FACTOR * max_q
+                    q_vals.append(new_val)
+                    bin_action = np.zeros((len(self.action_set),))
+                    bin_action[transition['action']] = 1
+                    actions.append(bin_action)
 
-            # Train
-            self._model.train_batch(np.vstack(frames), np.array(q_vals), np.array(actions))
-
-        self._train_skips += 1
-        # Update epsilon (epsilon-greedy policy)
-        self.epsilon -= (Agent._INITIAL_EPSILON - Agent._MIN_EPSILON) / Agent._EPSILON_ANNEALING_STEPS
-        if self.epsilon < Agent._MIN_EPSILON:
-            self.epsilon = Agent._MIN_EPSILON
-        # Store previous state and create new current state
+                # Train
+                self._model.train_batch(frames, np.array(q_vals), np.array(actions))
+                # Update epsilon (epsilon-greedy policy)
+                self.epsilon -= (Agent._INITIAL_EPSILON - Agent._MIN_EPSILON) / Agent._EPSILON_ANNEALING_STEPS
+                if self.epsilon < Agent._MIN_EPSILON:
+                    self.epsilon = Agent._MIN_EPSILON
+            # Store previous state and create new current state
+            self._train_skips += 1
         self._prev_state = self._current_state
         self._current_state = {}
 
@@ -126,13 +125,15 @@ class Agent():
         if state is None:
             return (np.zeros((84, 84, Agent._NUM_SKIP_FRAMES)), state['terminal'])
         stacked_frames = np.array(list(self.frames))
-        return (np.array([np.rot90(stacked_frames.T, 3).flatten()]), state['terminal'])
+        return (np.rot90(stacked_frames.T, 3).flatten(), state['terminal'])
 
     def _random_action(self):
         return random.randrange(len(self.action_set))
 
     def _optimal_action(self):
         # Use frame from prev_state as we have reset state in _learn_from_state
-        vals = self._model.predict(self._represent_state(self._prev_state)[0])
+        vals = self._model.predict(np.array([self._represent_state(self._prev_state)[0]]))
         action = np.argmax(vals)
+        self.action_hist[action] += 1
+        print(self.action_hist)
         return action

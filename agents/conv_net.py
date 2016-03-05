@@ -42,23 +42,28 @@ class ConvolutionalNetwork(object):
     @staticmethod
     def _build(num_actions):
         # Input/output placeholders
-        x = tf.placeholder(tf.float32, shape=[None, 84*84*4])
-        y = tf.placeholder(tf.float32, shape=[None, num_actions])
-        action = tf.placeholder(tf.float32, shape=[None, num_actions])
+        x = tf.placeholder(tf.float32, shape=[None, 84*84*4], name='x')
+        y = tf.placeholder(tf.float32, shape=[None], name='q_val')
+        tf.scalar_summary(y.op.name, tf.reduce_sum(y))
+        tf.histogram_summary("yhist", tf.reduce_sum(y))
+        action = tf.placeholder(tf.float32, shape=[None, num_actions], name='action')
+        x_image = tf.reshape(x, [-1,84,84,4])
 
         # First conv layer
-        x_image = tf.reshape(x, [-1,84,84,4])
         W_conv1 = ConvolutionalNetwork.weight_variable([8, 8, 4, 16])
         b_conv1 = ConvolutionalNetwork.bias_variable([16])
+        tf.scalar_summary(b_conv1.op.name, tf.reduce_sum(b_conv1))
         h_conv1 = tf.nn.relu(ConvolutionalNetwork.conv2d(x_image, W_conv1, 4) + b_conv1)
-        tf.image_summary("images", x_image, max_images=10, name="input_img")
-
+        h_conv_shape = tf.shape(h_conv1)
+        tf.image_summary("images", x_image, max_images=1, name="input_img")
+        for i in range(0,16):
+            tf.image_summary("weights1_" + str(i), h_conv1[:,:,:,i:i+1], max_images=1, name="weights1_" + str(i))
         # Second conv layer
         W_conv2 = ConvolutionalNetwork.weight_variable([4, 4, 16, 32])
         b_conv2 = ConvolutionalNetwork.bias_variable([32])
         h_conv2 = tf.nn.relu(ConvolutionalNetwork.conv2d(h_conv1, W_conv2, 2) + b_conv2)
-#        tf.image_summary("images", h_conv1, max_images=10, name="conv1")
-#        tf.image_summary("images", h_conv2, max_images=10, name="conv2")
+        for i in range(0,32):
+            tf.image_summary("weights2_" + str(i), h_conv2[:,:,:,i:i+1], max_images=1, name="weights2_" + str(i))
 
         # Fully connected hidden layer
         h_conv2_flat = tf.reshape(h_conv2, [-1, 3872])
@@ -70,23 +75,31 @@ class ConvolutionalNetwork(object):
         W_fc2 = ConvolutionalNetwork.weight_variable([256, num_actions])
         b_fc2 = ConvolutionalNetwork.bias_variable([num_actions])
         y_hat = tf.matmul(h_fc1, W_fc2) + b_fc2
-
-        y_hat_diff = tf.reduce_sum(tf.mul(y_hat, action), reduction_indices=1)
-        y_sum = tf.reduce_sum(y, reduction_indices=1)
-        cost = tf.reduce_mean(tf.square(y_sum - y_hat_diff))
-        tf.scalar_summary(cost.op.name, cost)
+        y_hat = tf.Print(y_hat, [y_hat], "y_hat")
+        y_hat_mult = tf.mul(y_hat, action)
+        y_hat_mult = tf.Print(y_hat_mult, [y_hat_mult], 'mult')
+        y_hat_action = tf.reduce_sum(y_hat_mult, reduction_indices=1)
+        shape = tf.shape(y_hat_action)
+        diff = y - y_hat_action
+        diff = tf.Print(diff, [diff, shape], 'diff')
+        cost = tf.square(diff)
+        shape_c = tf.shape(cost)
+#        cost = tf.Print(cost, [cost, shape_c], 'cost')
+        #tf.scalar_summary(cost.op.name, cost)
         train_op = tf.train.GradientDescentOptimizer(ConvolutionalNetwork.LEARNING_RATE).minimize(cost)
 
         return (x, y, action, y_hat, train_op)
 
     @staticmethod
     def weight_variable(shape):
-        initial = tf.zeros(shape)
+#        initial = tf.zeros(shape)
+#        initial = tf.constant(0.01, shape=shape)
+        initial = tf.random_normal(shape, stddev=0.01)
         return tf.Variable(initial)
 
     @staticmethod
     def bias_variable(shape):
-        initial = tf.constant(0.1, shape=shape)
+        initial = tf.constant(0.01, shape=shape)
         return tf.Variable(initial)
 
     @staticmethod
